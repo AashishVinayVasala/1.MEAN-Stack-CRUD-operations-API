@@ -1,63 +1,109 @@
 const express = require('express');
 var router = express.Router();
-var ObjectId = require('mongoose').Types.ObjectId;
+const mongoose = require('mongoose');
+const Employee = mongoose.model('employee');
 
-var { Employee } = require('../models/employee');
-
-// => localhost:3000/employees/
 router.get('/', (req, res) => {
-    Employee.find((err, docs) => {
-        if (!err) { res.send(docs); }
-        else { console.log('Error in Retriving Employees :' + JSON.stringify(err, undefined, 2)); }
-    });
-});
-
-router.get('/:id', (req, res) => {
-    if (!ObjectId.isValid(req.params.id))
-        return res.status(400).send(`No record with given id : ${req.params.id}`);
-
-    Employee.findById(req.params.id, (err, doc) => {
-        if (!err) { res.send(doc); }
-        else { console.log('Error in Retriving Employee :' + JSON.stringify(err, undefined, 2)); }
+    res.render("employee/addOrEdit", {
+        viewTitle: "product enquire"
     });
 });
 
 router.post('/', (req, res) => {
-    var emp = new Employee({
-        name: req.body.name,
-        position: req.body.position,
-        office: req.body.office,
-        salary: req.body.salary,
+    if (req.body._id == '')
+        insertRecord(req, res);
+    else
+        updateRecord(req, res);
+});
+
+
+function insertRecord(req, res) {
+    var employee = new Employee();
+    employee.fullName = req.body.fullName;
+    employee.email = req.body.email;
+    employee.product_id = req.body.product_id;
+    employee.mobile = req.body.mobile;
+    employee.city = req.body.city;
+    employee.save((err, doc) => {
+        if (!err)
+            res.redirect('employee/list');
+        else {
+            if (err.name == 'ValidationError') {
+                handleValidationError(err, req.body);
+                res.render("employee/addOrEdit", {
+                    viewTitle: "Insert Employee",
+                    employee: req.body
+                });
+            } else
+                console.log('Error during record insertion : ' + err);
+        }
     });
-    emp.save((err, doc) => {
-        if (!err) { res.send(doc); }
-        else { console.log('Error in Employee Save :' + JSON.stringify(err, undefined, 2)); }
+}
+
+function updateRecord(req, res) {
+    Employee.findOneAndUpdate({ _id: req.body._id }, req.body, { new: true }, (err, doc) => {
+        if (!err) { res.redirect('employee/list'); } else {
+            if (err.name == 'ValidationError') {
+                handleValidationError(err, req.body);
+                res.render("employee/addOrEdit", {
+                    viewTitle: 'Update product enquire details',
+                    employee: req.body
+                });
+            } else
+                console.log('Error during record update : ' + err);
+        }
+    });
+}
+
+
+router.get('/list', (req, res) => {
+    Employee.find((err, docs) => {
+        if (!err) {
+            res.status(200).render("employee/list", {
+                list: docs
+            });
+        } else {
+            res.status(200)
+            console.log('Error in retrieving employee list :' + err);
+        }
     });
 });
 
-router.put('/:id', (req, res) => {
-    if (!ObjectId.isValid(req.params.id))
-        return res.status(400).send(`No record with given id : ${req.params.id}`);
 
-    var emp = {
-        name: req.body.name,
-        position: req.body.position,
-        office: req.body.office,
-        salary: req.body.salary,
-    };
-    Employee.findByIdAndUpdate(req.params.id, { $set: emp }, { new: true }, (err, doc) => {
-        if (!err) { res.send(doc); }
-        else { console.log('Error in Employee Update :' + JSON.stringify(err, undefined, 2)); }
+function handleValidationError(err, body) {
+    for (field in err.errors) {
+        switch (err.errors[field].path) {
+            case 'fullName':
+                body['fullNameError'] = err.errors[field].message;
+                break;
+            case 'email':
+                body['emailError'] = err.errors[field].message;
+                break;
+            case 'product_id':
+                body['product_idError'] = err.errors[field].message;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+router.get('/:id', (req, res) => {
+    Employee.findById(req.params.id, (err, doc) => {
+        if (!err) {
+            res.render("employee/addOrEdit", {
+                viewTitle: "Update product enquire details",
+                employee: doc
+            });
+        }
     });
 });
 
-router.delete('/:id', (req, res) => {
-    if (!ObjectId.isValid(req.params.id))
-        return res.status(400).send(`No record with given id : ${req.params.id}`);
-
+router.get('/delete/:id', (req, res) => {
     Employee.findByIdAndRemove(req.params.id, (err, doc) => {
-        if (!err) { res.send(doc); }
-        else { console.log('Error in Employee Delete :' + JSON.stringify(err, undefined, 2)); }
+        if (!err) {
+            res.redirect('/employee/list');
+        } else { console.log('Error in employee delete :' + err); }
     });
 });
 
